@@ -27,7 +27,7 @@
 
 ## تشغيل Google Colab
 
-افتح [Notebook BellaBox_Product_CNN_Colab.ipynb](notebooks/BellaBox_Product_CNN_Colab.ipynb) في Google Colab، فعّل GPU من `Runtime > Change runtime type > T4 GPU`، واربط Google Drive. ستطلب الخلية الثالثة رفع ملف Excel مرة واحدة، ثم تحفظه في مجلد Drive.
+للتشغيل النهائي افتح [Notebook التسليم المرحلي BellaBox_Product_CNN_Final_Colab.ipynb](notebooks/BellaBox_Product_CNN_Final_Colab.ipynb) في Google Colab، فعّل GPU من `Runtime > Change runtime type > T4 GPU`، واربط Google Drive. يفحص الـNotebook وجود Dataset في المسار المحدد؛ إذا كانت موجودة يعرض رسالة ويكمل مباشرة إلى التدريب، وإذا لم تكن موجودة يبنيها من ملف Excel.
 
 يمكن أيضًا تشغيل الأوامر يدويًا بعد استنساخ المستودع:
 
@@ -110,7 +110,9 @@
 │   ├── predict.py
 │   └── requirements-colab.txt
 ├── notebooks/
-│   └── BellaBox_Product_CNN_Colab.ipynb
+│   └── BellaBox_Product_CNN_Final_Colab.ipynb
+├── docs/
+│   └── FINAL_DELIVERY_RUNBOOK_AR.md
 └── tasks/
     ├── plan.md
     └── todo.md
@@ -122,7 +124,7 @@
 
 ```bash
 python3 -m py_compile ml/build_dataset.py ml/train.py ml/predict.py
-python3 -m json.tool notebooks/BellaBox_Product_CNN_Colab.ipynb >/dev/null
+python3 -m json.tool notebooks/BellaBox_Product_CNN_Final_Colab.ipynb >/dev/null
 git diff --check
 ```
 

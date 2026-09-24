@@ -71,7 +71,7 @@ ml/
 ├── predict.py             # اختبار صورة واحدة من سطر الأوامر
 └── requirements-colab.txt
 notebooks/
-└── BellaBox_Product_CNN_Colab.ipynb
+└── BellaBox_Product_CNN_Final_Colab.ipynb
 ```
 
 ## استراتيجية منع مشاكل التدريب
