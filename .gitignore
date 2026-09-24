@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.env
+*.log
+
+# Generated datasets and trained models
+/data/
+/dataset/
+/outputs/
+/ml_outputs/
+*.keras
+*.h5
