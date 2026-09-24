@@ -8,7 +8,7 @@
 
 ```text
 BellaBox_Product_CNN_Colab_Project/
-├── BellaBox_Product_CNN_Colab_Project.zip
+├── BellaBox_Product_CNN_Final_Project.zip
 ├── bellabox_products.xlsx
 ├── dataset/
 │   ├── manifest.csv
@@ -46,6 +46,24 @@ BellaBox_Product_CNN_Colab_Project/
 8. التحقق من النموذج النهائي وملفات التقارير.
 9. إنشاء تقرير تصنيف وConfusion Matrix مُطبّعة.
 10. اختبار صورة جديدة اختياريًا وأرشفة نتائج التشغيل.
+
+## معالجة تعارض حزم Colab
+
+لا تستخدم `pip install --upgrade` على كامل حزم البيئة قبل استيراد `scikit-learn`. قد يؤدي ذلك إلى خلط ملفات NumPy وSciPy الثنائية داخل جلسة Colab. Notebook النهائي يثبت المتطلبات دون ترقية قسرية للحزمة العلمية.
+
+إذا ظهر خطأ مثل:
+
+```text
+ImportError: cannot import name '_slice' from 'numpy._core.umath'
+```
+
+نفّذ من قائمة Colab:
+
+```text
+Runtime > Disconnect and delete runtime
+```
+
+ثم افتح جلسة جديدة، اربط Drive، واستخدم Notebook النهائي المحدث. لا تستورد `sklearn` قبل إكمال خلية المتطلبات. إذا طلب Colab إعادة تشغيل الجلسة بعد التثبيت، اختر `Restart session` ثم أعد تشغيل الخلايا من البداية.
 
 ## شرط تجاوز بناء Dataset
 
