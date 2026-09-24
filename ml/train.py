@@ -163,10 +163,33 @@ def build_model(num_classes: int, learning_rate: float):
     return model, base
 
 
+@tf.keras.utils.register_keras_serializable(package="BellaBox")
+class SparseLabelSmoothingLoss(tf.keras.losses.Loss):
+    """Sparse label smoothing compatible with current Keras/TensorFlow."""
+
+    def __init__(self, smoothing: float = 0.08, name: str = "sparse_label_smoothing", **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.smoothing = float(smoothing)
+
+    def call(self, y_true, y_pred):
+        y_true = tf.cast(tf.reshape(y_true, [-1]), tf.int32)
+        y_pred = tf.cast(y_pred, tf.float32)
+        class_count = tf.shape(y_pred)[-1]
+        one_hot = tf.one_hot(y_true, depth=class_count, dtype=tf.float32)
+        smooth_value = self.smoothing / tf.cast(class_count, tf.float32)
+        targets = (1.0 - self.smoothing) * one_hot + smooth_value
+        epsilon = tf.keras.backend.epsilon()
+        y_pred = tf.clip_by_value(y_pred, epsilon, 1.0 - epsilon)
+        return -tf.reduce_sum(targets * tf.math.log(y_pred), axis=-1)
+
+    def get_config(self):
+        return {**super().get_config(), "smoothing": self.smoothing}
+
+
 def compile_model(model: tf.keras.Model, learning_rate: float) -> None:
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
-        loss=tf.keras.losses.SparseCategoricalCrossentropy(label_smoothing=0.08),
+        loss=SparseLabelSmoothingLoss(smoothing=0.08),
         metrics=[tf.keras.metrics.SparseCategoricalAccuracy(name="accuracy")],
     )
 

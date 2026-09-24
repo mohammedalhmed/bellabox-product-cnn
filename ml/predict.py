@@ -30,7 +30,7 @@ def load_image(path: Path) -> np.ndarray:
 
 def main() -> None:
     args = parse_args()
-    model = tf.keras.models.load_model(args.model)
+    model = tf.keras.models.load_model(args.model, compile=False)
     labels = json.loads(args.labels.read_text(encoding="utf-8"))
     probabilities = model.predict(load_image(args.image), verbose=0)[0]
     top_k = min(max(args.top_k, 1), len(labels))
