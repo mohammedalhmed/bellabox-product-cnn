@@ -1,22 +1,35 @@
 # BellaBox Product CNN
 
-مشروع تعلم آلي مستقل لتصنيف فئات منتجات متجر بيلابوكس من صور المنتجات باستخدام **CNN**. المشروع منفصل تمامًا عن ثيم سلة، ويعمل كـ Pipeline قابل لإعادة التشغيل على Google Colab من جمع البيانات إلى التدريب والتقييم واختبار صورة جديدة.
+مشروع تعلم آلي مستقل لتصنيف فئات منتجات متجر بيلابوكس من صور المنتجات باستخدام **CNN**. المشروع منفصل تمامًا عن ثيم سلة، ويعمل كـ Pipeline قابل لإعادة التشغيل على Google Colab من ملف منتجات سلة بصيغة Excel إلى التدريب والتقييم واختبار صورة جديدة.
 
 ## ما الذي يفعله المشروع؟
 
-يبني المشروع Dataset حقيقيًا من Sitemap متجر بيلابوكس العام وصور المنتجات المستضافة على CDN الخاص بالمتجر. يستخرج روابط المنتجات والصور، ينشئ تسميات فئات قابلة للمراجعة، ينزل الصور، ثم يدرب نموذج CNN لتوقع فئة المنتج. الهدف العملي هو إعطاء تصنيف بصري مبدئي عند إضافة منتج جديد، مع إبقاء المراجعة البشرية قبل اعتماد التصنيف.
+يستخدم المشروع **تصدير منتجات سلة Excel** كمصدر البيانات الأساسي. يقرأ عمود `تصنيف المنتج` كتسمية تدريب، ويقرأ روابط الصور من عمود `صورة المنتج`، ثم ينزل الصور إلى Google Drive وينشئ `manifest.csv`. بعد ذلك يدرب نموذج CNN على فئات المتجر الفعلية، مع إبقاء المراجعة البشرية قبل اعتماد التصنيف.
 
-المشروع لا يستخدم Datasets تعليمية جاهزة، ولا يرفع صور المنتجات أو أوزان النموذج إلى GitHub. يتم حفظ البيانات والنتائج داخل Google Drive أثناء تشغيل Google Colab.
+المشروع لا يستخدم Sitemap ولا Dataset تعليميًا جاهزًا، ولا يرفع ملف Excel أو صور المنتجات أو أوزان النموذج إلى GitHub. البيانات والنتائج تبقى داخل Google Drive أثناء تشغيل Google Colab.
 
 ## مستودع المشروع
 
 `https://github.com/mohammedalhmed/bellabox-product-cnn`
 
+## شكل ملف Excel المطلوب
+
+يدعم المشروع قالب منتجات سلة الذي يحتوي على صف عنوان في الصف الثاني، وبالأخص الأعمدة التالية:
+
+| العمود | الاستخدام |
+|---|---|
+| `No.` | معرف المنتج وتجميع الصور لمنع تسريب المنتج بين المجموعات |
+| `أسم المنتج` | اسم المنتج للتوثيق |
+| `تصنيف المنتج` | الفئة التي تتحول إلى label |
+| `صورة المنتج` | رابط صورة أو عدة روابط مفصولة بفواصل |
+
+في الملف الحالي يوجد 1252 صف منتج، و419 منتجًا يحتوي على روابط صور، وملفات الصور تأتي من CDN سلة. عدد الصفوف الفعلي قد يتغير إذا تم تصدير ملف جديد من لوحة سلة.
+
 ## تشغيل Google Colab
 
-يفضل فتح الملف [BellaBox_Product_CNN_Colab.ipynb](notebooks/BellaBox_Product_CNN_Colab.ipynb) في Google Colab، ثم تفعيل GPU من `Runtime > Change runtime type > T4 GPU` وربط Google Drive. الـ Notebook يثبت المتطلبات، ينزل بيانات المتجر، يدرب النموذج، يحفظ Checkpoints، ويختبر صورة جديدة.
+افتح [Notebook BellaBox_Product_CNN_Colab.ipynb](notebooks/BellaBox_Product_CNN_Colab.ipynb) في Google Colab، فعّل GPU من `Runtime > Change runtime type > T4 GPU`، واربط Google Drive. ستطلب الخلية الثالثة رفع ملف Excel مرة واحدة، ثم تحفظه في مجلد Drive.
 
-يمكن أيضًا تشغيل الأوامر التالية داخل Colab بعد استنساخ المستودع:
+يمكن أيضًا تشغيل الأوامر يدويًا بعد استنساخ المستودع:
 
 ```bash
 !git clone https://github.com/mohammedalhmed/bellabox-product-cnn.git
@@ -24,24 +37,30 @@
 !pip install -r ml/requirements-colab.txt
 ```
 
-### 1. بناء Dataset
+### 1. بناء Dataset من Excel
 
 ```bash
 !python ml/build_dataset.py \
-  --output-dir /content/bellabox_dataset \
-  --min-images-per-class 10 \
+  --products-xlsx /content/drive/MyDrive/BellaBox_Product_CNN/bellabox_products.xlsx \
+  --output-dir /content/drive/MyDrive/BellaBox_Product_CNN/dataset \
+  --category-level 2 \
+  --min-images-per-class 20 \
+  --min-products-per-class 4 \
+  --drop-small-classes \
   --max-images-per-product 3 \
   --download
 ```
 
-سينتج الأمر `manifest.csv` و`dataset_summary.json` ومجلد `images/`. يجب مراجعة `manifest.csv` قبل التدريب للتأكد من صحة التسميات. الحد الأدنى الافتراضي هو 10 صور لكل فئة، ويمكن رفعه بعد مراجعة حجم البيانات.
+`--category-level 2` يحول المسار إلى تصنيف متوسط مثل `العناية > العناية بالوجه` أو `المكياج > العيون`. استخدم `--category-level 1` لتصنيف عام مثل `العناية` و`المكياج`. المستوى 3 أكثر تفصيلًا لكنه يحتاج بيانات أكثر لكل فئة.
+
+ينتج الأمر `manifest.csv` و`dataset_summary.json` ومجلد `images/`. يجب مراجعة `manifest.csv` قبل التدريب. الفئات التي تقل عن الحد الأدنى يتم استبعادها فقط عند استخدام `--drop-small-classes`، ويسجل الاستبعاد في `dataset_summary.json`.
 
 ### 2. تدريب CNN وحفظ النموذج
 
 ```bash
 !python ml/train.py \
-  --data-dir /content/bellabox_dataset \
-  --output-dir /content/bellabox_outputs \
+  --data-dir /content/drive/MyDrive/BellaBox_Product_CNN/dataset \
+  --output-dir /content/drive/MyDrive/BellaBox_Product_CNN/outputs \
   --epochs 15 \
   --batch-size 32 \
   --resume
@@ -53,8 +72,8 @@
 
 ```bash
 !python ml/predict.py \
-  --model /content/bellabox_outputs/final_model.keras \
-  --labels /content/bellabox_outputs/labels.json \
+  --model /content/drive/MyDrive/BellaBox_Product_CNN/outputs/final_model.keras \
+  --labels /content/drive/MyDrive/BellaBox_Product_CNN/outputs/labels.json \
   --image /content/test-product.jpg \
   --top-k 3
 ```
@@ -63,7 +82,7 @@
 
 ## Checkpoints والنتائج
 
-عند استخدام Notebook، اجعل `WORK_DIR` داخل Google Drive. يحفظ التدريب الملفات التالية داخل مجلد النتائج:
+عند استخدام Notebook، احفظ `WORK_DIR` داخل Google Drive. يحفظ التدريب الملفات التالية داخل مجلد النتائج:
 
 | الملف | الغرض |
 |---|---|
@@ -99,7 +118,7 @@
 
 ## التحقق المحلي
 
-يمكن فحص صياغة Python وNotebook دون تثبيت TensorFlow:
+يمكن فحص صياغة Python وNotebook دون تشغيل التدريب:
 
 ```bash
 python3 -m py_compile ml/build_dataset.py ml/train.py ml/predict.py
@@ -111,7 +130,7 @@ git diff --check
 
 ## ملاحظات مهمة للتسليم
 
-البيانات الحالية تُجمع من Sitemap بيلابوكس وقت التشغيل، ولذلك يجب تسجيل محتوى `dataset_summary.json` ونتيجة `metrics.json` في يوم التدريب. لا تعتمد نسبة دقة قبل تشغيل التدريب الفعلي. كذلك يجب تجربة النموذج على صور منتجات لم تظهر في Dataset إن أمكن، ومراجعة النتائج يدويًا قبل اعتبار التصنيف جاهزًا للاستخدام.
+سجل محتوى `dataset_summary.json` ونتيجة `metrics.json` في يوم التدريب. لا تعتمد نسبة دقة قبل تشغيل التدريب الفعلي. جرّب النموذج على صور منتجات لم تظهر في Dataset إن أمكن، وراجع الفئات في `manifest.csv` يدويًا قبل اعتبار التصنيف جاهزًا للاستخدام.
 
 ## الترخيص
 
