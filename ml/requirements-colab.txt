@@ -1,5 +1,5 @@
-# Current Google Colab runtimes expose Python versions requiring TF 2.20+.
-tensorflow>=2.20,<2.22
+# Current and future Google Colab runtimes require TensorFlow 2.20+.
+tensorflow>=2.20
 openpyxl>=3.1
 pillow>=10.0
 numpy>=1.24
