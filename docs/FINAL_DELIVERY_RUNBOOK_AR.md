@@ -42,10 +42,11 @@ BellaBox_Product_CNN_Colab_Project/
 4. تخطي إعادة البناء إذا كانت Dataset موجودة وجاهزة.
 5. بناء Dataset من Excel فقط إذا لم تكن موجودة.
 6. فحص تقسيم المنتجات والتأكد من عدم وجود Product Leakage.
-7. بدء التدريب أو استئنافه من `backup_stage1` و`backup_stage2`.
+7. بدء التدريب أو استئنافه من `backup_stage1` و`backup_stage2` باستخدام Learning Rate ابتدائي `3e-4` وFine-tuning بمعدل `1e-5`.
 8. التحقق من النموذج النهائي وملفات التقارير.
-9. إنشاء تقرير تصنيف وConfusion Matrix مُطبّعة.
-10. اختبار صورة جديدة اختياريًا وأرشفة نتائج التشغيل.
+9. إنشاء تقرير تصنيف وConfusion Matrix بالأعداد والنسب المطبّعة.
+10. رفع صورة أو عدة صور جديدة وعرض Top-3 predictions والثقة بجانب كل صورة.
+11. أرشفة نتائج التشغيل.
 
 ## معالجة تعارض حزم Colab
 
@@ -108,6 +109,20 @@ OUTPUT_DIR=/content/drive/MyDrive/BellaBox_Product_CNN_Colab_Project/outputs_fin
 - منحنيات التدريب والتحقق.
 - اختبار صورة جديدة لم تدخل في Dataset.
 
+لتشغيل اختبار العينات الجديدة داخل Notebook غيّر:
+
+```python
+RUN_EXTERNAL_TEST = False
+```
+
+إلى:
+
+```python
+RUN_EXTERNAL_TEST = True
+```
+
+ثم شغّل الخلية. سيعرض Notebook كل صورة مرفوعة مع أعلى ثلاث فئات واحتمال كل فئة، ويحفظ النتائج في `new_samples_predictions.json`.
+
 لا تعتمد Accuracy وحدها لأن أعداد الصور تختلف بين الفئات. في ملف Excel الحالي توجد فئات صغيرة، ولذلك يجب تفسير نتائجها بحذر وذكر قيمة `support` في التقرير.
 
 ## قائمة فحص التسليم
@@ -117,9 +132,9 @@ OUTPUT_DIR=/content/drive/MyDrive/BellaBox_Product_CNN_Colab_Project/outputs_fin
 - [ ] ظهرت رسالة Dataset الموجودة أو اكتمل بناؤها من Excel.
 - [ ] تم التأكد من عدم تقاطع `product_id` بين train وvalidation وtest.
 - [ ] تم حفظ `best.keras` و`last.keras` و`final_model.keras`.
-- [ ] تم حفظ `metrics.json` و`classification_report.txt`.
+- [ ] تم حفظ `metrics.json` و`classification_report.txt` و`classification_report.json`.
 - [ ] تم عرض Confusion Matrix العادية والمطبّعة.
-- [ ] تم اختبار صورة جديدة خارج Dataset.
+- [ ] تم اختبار صورة أو عدة صور جديدة خارج Dataset وعرض نتائجها.
 - [ ] تم ضغط `outputs_final/` في `BellaBox_CNN_Final_Run.zip`.
 - [ ] تم حفظ نسخة ZIP النهائية في Google Drive.
 

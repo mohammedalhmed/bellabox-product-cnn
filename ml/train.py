@@ -99,7 +99,9 @@ def classification_report_dict(true, predicted, labels):
     rows = per_class_metrics(true, predicted, labels)
     result = {row["label"]: {key: row[key] for key in ["precision", "recall", "f1-score", "support"]} for row in rows}
     total_support = sum(row["support"] for row in rows)
-    result["accuracy"] = float(np.mean(np.asarray(true) == np.asarray(predicted))) if len(true) else 0.0
+    result["accuracy"] = {
+        "accuracy": float(np.mean(np.asarray(true) == np.asarray(predicted))) if len(true) else 0.0
+    }
     for average_name, weight_key in [("macro avg", None), ("weighted avg", "support")]:
         result[average_name] = {}
         for key in ["precision", "recall", "f1-score"]:
@@ -124,12 +126,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=Path("ml_outputs/bellabox"))
     parser.add_argument("--epochs", type=int, default=15)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--learning-rate", type=float, default=1e-3)
+    parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--fine-tune-learning-rate", type=float, default=1e-5)
     parser.add_argument("--val-size", type=float, default=0.15)
     parser.add_argument("--test-size", type=float, default=0.15)
-    parser.add_argument("--fine-tune-layers", type=int, default=40)
-    parser.add_argument("--patience", type=int, default=4)
+    parser.add_argument("--fine-tune-layers", type=int, default=60)
+    parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--resume", action="store_true", default=True)
     parser.add_argument("--no-resume", dest="resume", action="store_false")
     return parser.parse_args()
@@ -290,31 +292,40 @@ class SparseLabelSmoothingLoss(tf.keras.losses.Loss):
 
 def compile_model(model: tf.keras.Model, learning_rate: float) -> None:
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
-        loss=SparseLabelSmoothingLoss(smoothing=0.08),
+        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=1.0),
+        loss=SparseLabelSmoothingLoss(smoothing=0.05),
         metrics=[tf.keras.metrics.SparseCategoricalAccuracy(name="accuracy")],
     )
 
 
 class MacroF1Callback(tf.keras.callbacks.Callback):
-    def __init__(self, validation_data, validation_labels: np.ndarray):
+    def __init__(self, validation_data, validation_labels: np.ndarray, class_labels):
         super().__init__()
         self.validation_data = validation_data
         self.validation_labels = validation_labels
+        self.class_labels = list(class_labels)
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
         predictions = self.model.predict(self.validation_data, verbose=0)
         predicted_labels = np.argmax(predictions, axis=1)
         logs["val_macro_f1"] = macro_f1(
-            self.validation_labels, predicted_labels, sorted(set(self.validation_labels.tolist()))
+            self.validation_labels, predicted_labels, self.class_labels
         )
         logging.info("epoch=%s val_macro_f1=%.4f", epoch + 1, logs["val_macro_f1"])
 
 
-def make_callbacks(output_dir: Path, validation_data, validation_labels: np.ndarray, patience: int, backup_dir: Path):
+class LearningRateLogger(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        learning_rate = self.model.optimizer.learning_rate
+        logs["learning_rate"] = float(tf.keras.backend.get_value(learning_rate))
+
+
+def make_callbacks(output_dir: Path, validation_data, validation_labels: np.ndarray, class_labels, patience: int, backup_dir: Path):
     return [
-        MacroF1Callback(validation_data, validation_labels),
+        LearningRateLogger(),
+        MacroF1Callback(validation_data, validation_labels, class_labels),
         tf.keras.callbacks.ModelCheckpoint(
             output_dir / "best.keras",
             monitor="val_macro_f1",
@@ -343,7 +354,7 @@ def plot_history(histories: list[dict[str, list[float]]], output_dir: Path) -> N
     for history in histories:
         for key, values in history.items():
             merged.setdefault(key, []).extend(values)
-    figure, axes = plt.subplots(1, 2, figsize=(12, 4))
+    figure, axes = plt.subplots(1, 3, figsize=(17, 4))
     axes[0].plot(merged.get("loss", []), label="train")
     axes[0].plot(merged.get("val_loss", []), label="validation")
     axes[0].set_title("Loss")
@@ -352,6 +363,10 @@ def plot_history(histories: list[dict[str, list[float]]], output_dir: Path) -> N
     axes[1].plot(merged.get("val_accuracy", []), label="validation")
     axes[1].set_title("Accuracy")
     axes[1].legend()
+    axes[2].plot(merged.get("learning_rate", []), label="learning rate", color="darkgreen")
+    axes[2].set_title("Learning Rate")
+    axes[2].set_yscale("log")
+    axes[2].legend()
     figure.tight_layout()
     figure.savefig(output_dir / "training_curves.png", dpi=160)
     plt.close(figure)
@@ -367,7 +382,11 @@ def evaluate(model, test_data, test_rows, labels, output_dir: Path) -> dict:
     f1 = report_dict["macro avg"]["f1-score"]
     report = classification_report_text(true, predicted, list(range(len(labels))), display_names=labels)
     (output_dir / "classification_report.txt").write_text(report, encoding="utf-8")
+    (output_dir / "classification_report.json").write_text(
+        json.dumps(report_dict, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     matrix = confusion_matrix(true, predicted, labels=list(range(len(labels))))
+    np.savetxt(output_dir / "confusion_matrix.csv", matrix, fmt="%d", delimiter=",")
     figure, axis = plt.subplots(figsize=(8, 7))
     image = axis.imshow(matrix, cmap="Blues")
     figure.colorbar(image, ax=axis)
@@ -382,6 +401,27 @@ def evaluate(model, test_data, test_rows, labels, output_dir: Path) -> dict:
             axis.text(column_index, row_index, matrix[row_index, column_index], ha="center", va="center")
     figure.tight_layout()
     figure.savefig(output_dir / "confusion_matrix.png", dpi=160)
+    plt.close(figure)
+    row_totals = matrix.sum(axis=1, keepdims=True)
+    normalized_matrix = np.divide(
+        matrix.astype(np.float64), row_totals,
+        out=np.zeros_like(matrix, dtype=np.float64), where=row_totals != 0,
+    )
+    np.savetxt(output_dir / "confusion_matrix_normalized.csv", normalized_matrix, fmt="%.6f", delimiter=",")
+    figure, axis = plt.subplots(figsize=(8, 7))
+    image = axis.imshow(normalized_matrix, cmap="Blues", vmin=0.0, vmax=1.0)
+    figure.colorbar(image, ax=axis)
+    axis.set(
+        xticks=list(range(len(labels))), yticks=list(range(len(labels))),
+        xticklabels=labels, yticklabels=labels, xlabel="Predicted", ylabel="True",
+        title="BellaBox Product Normalized Confusion Matrix",
+    )
+    plt.setp(axis.get_xticklabels(), rotation=45, ha="right")
+    for row_index in range(normalized_matrix.shape[0]):
+        for column_index in range(normalized_matrix.shape[1]):
+            axis.text(column_index, row_index, f"{normalized_matrix[row_index, column_index]:.2f}", ha="center", va="center")
+    figure.tight_layout()
+    figure.savefig(output_dir / "confusion_matrix_normalized.png", dpi=160)
     plt.close(figure)
     metrics = {
         "accuracy": float(np.mean(true == predicted)),
@@ -444,7 +484,7 @@ def main() -> None:
         backbone = next(layer for layer in model.layers if isinstance(layer, tf.keras.Model) and "efficientnet" in layer.name.lower())
     else:
         stage1_callbacks = make_callbacks(
-            args.output_dir, validation_data, validation_labels, args.patience,
+            args.output_dir, validation_data, validation_labels, list(range(len(labels))), args.patience,
             args.output_dir / "backup_stage1",
         )
         history = model.fit(
@@ -462,7 +502,7 @@ def main() -> None:
             layer.trainable = True
     compile_model(model, args.fine_tune_learning_rate)
     stage2_callbacks = make_callbacks(
-        args.output_dir, validation_data, validation_labels, args.patience,
+        args.output_dir, validation_data, validation_labels, list(range(len(labels))), args.patience,
         args.output_dir / "backup_stage2",
     )
     remaining_epochs = max(1, args.epochs - max(3, args.epochs // 2))

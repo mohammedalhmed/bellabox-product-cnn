@@ -79,9 +79,10 @@ notebooks/
 | المشكلة | المعالجة في المشروع |
 |---|---|
 | تسريب الصور بين المجموعات | تقسيم Grouped حسب `product_id` قبل تكوين Dataset |
-| Overfitting | Augmentation، Dropout، Label Smoothing، تجميد الـ backbone أولًا، Fine-tuning محدود، Early Stopping |
+| Overfitting | Augmentation، Dropout، Label Smoothing منخفض، تجميد الـ backbone أولًا، Fine-tuning محدود، Early Stopping |
 | عدم توازن الفئات | حساب `class_weight` من مجموعة التدريب فقط |
-| Underfitting | Transfer Learning، مرحلتان للتدريب، وفك آخر طبقات CNN بمعدل تعلم صغير |
+| Underfitting | Transfer Learning، مرحلتان للتدريب، Learning Rate ابتدائي `3e-4`، Fine-tuning بمعدل `1e-5`، وفتح آخر 60 طبقة قابلة للتدريب |
+| تذبذب Learning Rate | `ReduceLROnPlateau` بمراقبة `val_macro_f1`، وAdam مع `clipnorm=1.0` |
 | فئات صغيرة جدًا | حد أدنى للصور والمنتجات، مع خيار `--drop-small-classes` وتسجيل الفئات المستبعدة |
 | فقدان جلسة Colab | `BackupAndRestore` إلى مجلد ثابت في Google Drive عند استخدام Notebook |
 | تلف أفضل وزن | `best.keras` و`last.keras` وCheckpoints لكل Epoch |
@@ -93,8 +94,8 @@ notebooks/
 - قراءة أعمدة `No.` و`أسم المنتج` و`تصنيف المنتج` و`صورة المنتج` بنجاح.
 - وجود فئتين على الأقل والحد الأدنى المحدد من الصور والمنتجات لكل فئة بعد التنظيف.
 - استكمال التدريب مع حفظ `best.keras` و`last.keras` و`final_model.keras` و`labels.json`.
-- إنتاج `classification_report.txt` و`confusion_matrix.png` و`metrics.json`.
-- نجاح اختبار صورة واحدة وإرجاع Top-3 احتمالات.
+- إنتاج `classification_report.txt` و`classification_report.json` و`confusion_matrix.png` و`confusion_matrix_normalized.png` و`metrics.json`.
+- عرض نتائج اختبار صورة أو عدة صور جديدة بصريًا مع Top-3 probabilities وحفظها في `new_samples_predictions.json`.
 - إمكانية استئناف التدريب من مجلد Checkpoints في Colab.
 
 ## حدود المشروع

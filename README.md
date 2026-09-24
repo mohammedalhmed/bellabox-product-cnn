@@ -78,7 +78,9 @@
   --top-k 3
 ```
 
-سيظهر ناتج JSON يحتوي على أعلى ثلاثة تصنيفات واحتمال كل تصنيف.
+سيظهر ناتج JSON يحتوي على أعلى ثلاثة تصنيفات واحتمال كل تصنيف. وفي Notebook النهائي يمكن رفع عدة عينات جديدة، حيث يعرض النظام الصور وTop-3 predictions في مخطط مرئي ويحفظها في `new_samples_predictions.json`.
+
+يستخدم التدريب افتراضيًا Learning Rate بقيمة `3e-4` للمرحلة الأولى و`1e-5` للـFine-tuning، مع `ReduceLROnPlateau` و`EarlyStopping` و`clipnorm=1.0` لتقليل تذبذب التدريب وتحسين التعميم. يمكن تعديل القيم من أمر التدريب عند الحاجة.
 
 ## Checkpoints والنتائج
 
@@ -92,11 +94,16 @@
 | `labels.json` | ترتيب الفئات المستخدم في النموذج |
 | `metrics.json` | Accuracy وMacro Precision وMacro Recall وMacro F1 |
 | `classification_report.txt` | تقرير تفصيلي لكل فئة |
+| `classification_report.json` | التقرير المنظم بصيغة JSON |
 | `confusion_matrix.png` | مصفوفة الالتباس |
+| `confusion_matrix_normalized.png` | مصفوفة الالتباس كنسب لكل فئة |
+| `confusion_matrix.csv` و`confusion_matrix_normalized.csv` | البيانات الرقمية للمصفوفات |
 | `training_curves.png` | منحنيات الخسارة والدقة |
 | `backup_stage1/` و`backup_stage2/` | ملفات استئناف `BackupAndRestore` |
 
 إذا انقطعت جلسة Colab، أعد تشغيل خلية التدريب مع نفس مجلد النتائج؛ سيحاول التدريب الاستئناف من ملفات Drive بدل البدء من الصفر.
+
+لتجربة إعدادات Learning Rate الجديدة من البداية، غيّر `FORCE_RETRAIN = True` في Notebook؛ سيستخدم Notebook مجلد `outputs_tuned` ويمرر `--no-resume` حتى لا يخلط Checkpoints القديمة مع التجربة الجديدة.
 
 ## بنية المشروع
 
