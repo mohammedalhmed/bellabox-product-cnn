@@ -13,19 +13,109 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from sklearn.metrics import (
-    accuracy_score,
-    classification_report,
-    confusion_matrix,
-    f1_score,
-    precision_recall_fscore_support,
-)
-from sklearn.model_selection import train_test_split
-from sklearn.utils.class_weight import compute_class_weight
 
 SEED = 42
 IMAGE_SIZE = (224, 224)
 AUTOTUNE = tf.data.AUTOTUNE
+
+
+def stratified_train_test_split(values, labels, test_size: float, random_state: int):
+    """Small NumPy-only replacement for sklearn train_test_split(stratify=...)."""
+    values = np.asarray(values)
+    labels = np.asarray(labels)
+    rng = np.random.default_rng(random_state)
+    train_indices: list[int] = []
+    test_indices: list[int] = []
+    for label in np.unique(labels):
+        indices = np.flatnonzero(labels == label).tolist()
+        rng.shuffle(indices)
+        if len(indices) <= 1:
+            n_test = 0
+        else:
+            n_test = min(len(indices) - 1, max(1, round(len(indices) * test_size)))
+        test_indices.extend(indices[:n_test])
+        train_indices.extend(indices[n_test:])
+    rng.shuffle(train_indices)
+    rng.shuffle(test_indices)
+    return values[train_indices], values[test_indices]
+
+
+def confusion_matrix(true, predicted, labels):
+    matrix = np.zeros((len(labels), len(labels)), dtype=np.int64)
+    for actual, guess in zip(true, predicted):
+        if int(actual) in labels and int(guess) in labels:
+            matrix[int(actual), int(guess)] += 1
+    return matrix
+
+
+def per_class_metrics(true, predicted, labels):
+    matrix = confusion_matrix(true, predicted, labels)
+    rows = []
+    for index, label in enumerate(labels):
+        true_positive = float(matrix[index, index])
+        predicted_total = float(matrix[:, index].sum())
+        actual_total = float(matrix[index, :].sum())
+        precision = true_positive / predicted_total if predicted_total else 0.0
+        recall = true_positive / actual_total if actual_total else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+        rows.append({"label": label, "precision": precision, "recall": recall, "f1-score": f1, "support": int(actual_total)})
+    return rows
+
+
+def macro_f1(true, predicted, labels) -> float:
+    rows = per_class_metrics(true, predicted, labels)
+    return float(np.mean([row["f1-score"] for row in rows])) if rows else 0.0
+
+
+def classification_report_text(true, predicted, labels, display_names=None) -> str:
+    rows = per_class_metrics(true, predicted, labels)
+    display_names = display_names or [str(label) for label in labels]
+    accuracy = float(np.mean(np.asarray(true) == np.asarray(predicted))) if len(true) else 0.0
+    macro = {key: float(np.mean([row[key] for row in rows])) for key in ["precision", "recall", "f1-score"]}
+    total_support = sum(row["support"] for row in rows)
+    weighted = {
+        key: sum(row[key] * row["support"] for row in rows) / total_support if total_support else 0.0
+        for key in ["precision", "recall", "f1-score"]
+    }
+    name_width = max(18, max((len(str(display_names[index])) for index in range(len(rows))), default=0) + 2)
+    lines = [
+        f"{'':{name_width}} precision    recall  f1-score   support",
+        "",
+    ]
+    for index, row in enumerate(rows):
+        lines.append(
+            f"{str(display_names[index]):{name_width}} {row['precision']:9.2f} {row['recall']:9.2f} {row['f1-score']:9.2f} {row['support']:9d}"
+        )
+    lines.extend([
+        "",
+        f"{'accuracy':{name_width}} {accuracy:27.2f} {total_support:9d}",
+        f"{'macro avg':{name_width}} {macro['precision']:9.2f} {macro['recall']:9.2f} {macro['f1-score']:9.2f} {total_support:9d}",
+        f"{'weighted avg':{name_width}} {weighted['precision']:9.2f} {weighted['recall']:9.2f} {weighted['f1-score']:9.2f} {total_support:9d}",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def classification_report_dict(true, predicted, labels):
+    rows = per_class_metrics(true, predicted, labels)
+    result = {row["label"]: {key: row[key] for key in ["precision", "recall", "f1-score", "support"]} for row in rows}
+    total_support = sum(row["support"] for row in rows)
+    result["accuracy"] = float(np.mean(np.asarray(true) == np.asarray(predicted))) if len(true) else 0.0
+    for average_name, weight_key in [("macro avg", None), ("weighted avg", "support")]:
+        result[average_name] = {}
+        for key in ["precision", "recall", "f1-score"]:
+            if weight_key:
+                value = sum(row[key] * row[weight_key] for row in rows) / total_support if total_support else 0.0
+            else:
+                value = float(np.mean([row[key] for row in rows])) if rows else 0.0
+            result[average_name][key] = value
+        result[average_name]["support"] = total_support
+    return result
+
+
+def balanced_class_weights(labels, class_count: int):
+    counts = np.bincount(labels, minlength=class_count).astype(np.float64)
+    total = max(1, len(labels))
+    return np.divide(total, class_count * counts, out=np.zeros_like(counts), where=counts != 0)
 
 
 def parse_args() -> argparse.Namespace:
@@ -76,19 +166,19 @@ def grouped_stratified_split(rows: list[dict[str, str]], val_size: float, test_s
         raise ValueError("Need at least 6 distinct products for grouped train/val/test split.")
 
     try:
-        train_groups, temp_groups = train_test_split(
+        train_groups, temp_groups = stratified_train_test_split(
             group_ids,
+            group_labels,
             test_size=val_size + test_size,
             random_state=SEED,
-            stratify=group_labels,
         )
         temp_labels = np.array([groups[group_id] for group_id in temp_groups])
         relative_test = test_size / (val_size + test_size)
-        val_groups, test_groups = train_test_split(
+        val_groups, test_groups = stratified_train_test_split(
             temp_groups,
+            temp_labels,
             test_size=relative_test,
             random_state=SEED,
-            stratify=temp_labels,
         )
     except ValueError as error:
         logging.warning("Stratified group split fallback: %s", error)
@@ -216,8 +306,8 @@ class MacroF1Callback(tf.keras.callbacks.Callback):
         logs = logs or {}
         predictions = self.model.predict(self.validation_data, verbose=0)
         predicted_labels = np.argmax(predictions, axis=1)
-        logs["val_macro_f1"] = float(
-            f1_score(self.validation_labels, predicted_labels, average="macro", zero_division=0)
+        logs["val_macro_f1"] = macro_f1(
+            self.validation_labels, predicted_labels, sorted(set(self.validation_labels.tolist()))
         )
         logging.info("epoch=%s val_macro_f1=%.4f", epoch + 1, logs["val_macro_f1"])
 
@@ -271,10 +361,11 @@ def evaluate(model, test_data, test_rows, labels, output_dir: Path) -> dict:
     true = np.array([labels.index(row["label"]) for row in test_rows])
     probabilities = model.predict(test_data, verbose=0)
     predicted = np.argmax(probabilities, axis=1)
-    precision, recall, f1, _ = precision_recall_fscore_support(
-        true, predicted, average="macro", zero_division=0
-    )
-    report = classification_report(true, predicted, target_names=labels, zero_division=0)
+    report_dict = classification_report_dict(true, predicted, list(range(len(labels))))
+    precision = report_dict["macro avg"]["precision"]
+    recall = report_dict["macro avg"]["recall"]
+    f1 = report_dict["macro avg"]["f1-score"]
+    report = classification_report_text(true, predicted, list(range(len(labels))), display_names=labels)
     (output_dir / "classification_report.txt").write_text(report, encoding="utf-8")
     matrix = confusion_matrix(true, predicted, labels=list(range(len(labels))))
     figure, axis = plt.subplots(figsize=(8, 7))
@@ -293,7 +384,7 @@ def evaluate(model, test_data, test_rows, labels, output_dir: Path) -> dict:
     figure.savefig(output_dir / "confusion_matrix.png", dpi=160)
     plt.close(figure)
     metrics = {
-        "accuracy": float(accuracy_score(true, predicted)),
+        "accuracy": float(np.mean(true == predicted)),
         "macro_precision": float(precision),
         "macro_recall": float(recall),
         "macro_f1": float(f1),
@@ -340,7 +431,7 @@ def main() -> None:
     test_data = make_dataset(split_rows["test"], label_to_id, False, args.batch_size)
     validation_labels = np.array([label_to_id[row["label"]] for row in split_rows["validation"]])
     train_labels = np.array([label_to_id[row["label"]] for row in split_rows["train"]])
-    weights = compute_class_weight("balanced", classes=np.arange(len(labels)), y=train_labels)
+    weights = balanced_class_weights(train_labels, len(labels))
     class_weights = {index: float(weight) for index, weight in enumerate(weights)}
     (args.output_dir / "class_weights.json").write_text(json.dumps(class_weights, indent=2), encoding="utf-8")
 
