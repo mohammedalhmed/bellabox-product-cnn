@@ -130,7 +130,19 @@ def make_dataset(rows: list[dict[str, str]], label_to_id: dict[str, int], traini
 
     def load_image(path, label):
         image = tf.io.read_file(path)
-        image = tf.image.decode_image(image, channels=3, expand_animations=False)
+        # Let TensorFlow detect the source channels first. Product exports can
+        # contain RGB, RGBA, grayscale, or palette PNG/WebP files.
+        image = tf.image.decode_image(image, channels=0, expand_animations=False)
+        channel_count = tf.shape(image)[-1]
+        image = tf.cond(
+            tf.equal(channel_count, 1),
+            lambda: tf.image.grayscale_to_rgb(image[..., :1]),
+            lambda: tf.cond(
+                tf.equal(channel_count, 2),
+                lambda: tf.image.grayscale_to_rgb(image[..., :1]),
+                lambda: image[..., :3],
+            ),
+        )
         image.set_shape([None, None, 3])
         image = tf.image.resize_with_pad(image, IMAGE_SIZE[0], IMAGE_SIZE[1])
         image = tf.cast(image, tf.float32)
