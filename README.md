@@ -2,6 +2,21 @@
 
 مشروع تعلم آلي مستقل لتصنيف فئات منتجات متجر بيلابوكس من صور المنتجات باستخدام **CNN**. المشروع منفصل تمامًا عن ثيم سلة، ويعمل كـ Pipeline قابل لإعادة التشغيل على Google Colab من ملف منتجات سلة بصيغة Excel إلى التدريب والتقييم واختبار صورة جديدة.
 
+## Portfolio Proof
+
+| البعد | الدليل |
+|---|---|
+| **المشكلة** | تصنيف صور منتجات متجر حقيقي إلى فئات متجر مفيدة بدل استخدام Dataset تعليمي جاهز. |
+| **الحل** | Pipeline من Excel وصور المنتجات إلى Dataset منظم، تدريب EfficientNetB0، Checkpoints، تقييم، ثم Top-K prediction. |
+| **بناء البيانات** | [build_dataset.py](ml/build_dataset.py) |
+| **التدريب** | [train.py](ml/train.py) |
+| **الاختبار** | [predict.py](ml/predict.py) |
+| **Colab** | [Final Notebook](notebooks/BellaBox_Product_CNN_Final_Colab.ipynb) |
+| **التسليم** | [Runbook عربي](docs/FINAL_DELIVERY_RUNBOOK_AR.md) |
+| **الحالة الحالية** | البنية وأكواد التدريب جاهزة؛ لا تُعرض دقة نهائية قبل تنفيذ التدريب الفعلي وتسجيل metrics. |
+
+
+
 ## ML Pipeline
 
 ```mermaid
