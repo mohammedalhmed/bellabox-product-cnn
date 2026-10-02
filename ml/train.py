@@ -14,30 +14,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
+from split_utils import grouped_stratified_split_strict
+
 SEED = 42
 IMAGE_SIZE = (224, 224)
 AUTOTUNE = tf.data.AUTOTUNE
-
-
-def stratified_train_test_split(values, labels, test_size: float, random_state: int):
-    """Small NumPy-only replacement for sklearn train_test_split(stratify=...)."""
-    values = np.asarray(values)
-    labels = np.asarray(labels)
-    rng = np.random.default_rng(random_state)
-    train_indices: list[int] = []
-    test_indices: list[int] = []
-    for label in np.unique(labels):
-        indices = np.flatnonzero(labels == label).tolist()
-        rng.shuffle(indices)
-        if len(indices) <= 1:
-            n_test = 0
-        else:
-            n_test = min(len(indices) - 1, max(1, round(len(indices) * test_size)))
-        test_indices.extend(indices[:n_test])
-        train_indices.extend(indices[n_test:])
-    rng.shuffle(train_indices)
-    rng.shuffle(test_indices)
-    return values[train_indices], values[test_indices]
 
 
 def confusion_matrix(true, predicted, labels):
@@ -156,61 +137,6 @@ def read_manifest(data_dir: Path) -> list[dict[str, str]]:
     if not rows:
         raise ValueError("No usable downloaded images found in manifest.csv.")
     return rows
-
-
-def grouped_stratified_split(rows: list[dict[str, str]], val_size: float, test_size: float):
-    groups: dict[str, str] = {}
-    for row in rows:
-        groups.setdefault(row["product_id"], row["label"])
-    group_ids = np.array(sorted(groups))
-    group_labels = np.array([groups[group_id] for group_id in group_ids])
-    if len(group_ids) < 6:
-        raise ValueError("Need at least 6 distinct products for grouped train/val/test split.")
-
-    try:
-        train_groups, temp_groups = stratified_train_test_split(
-            group_ids,
-            group_labels,
-            test_size=val_size + test_size,
-            random_state=SEED,
-        )
-        temp_labels = np.array([groups[group_id] for group_id in temp_groups])
-        relative_test = test_size / (val_size + test_size)
-        val_groups, test_groups = stratified_train_test_split(
-            temp_groups,
-            temp_labels,
-            test_size=relative_test,
-            random_state=SEED,
-        )
-    except ValueError as error:
-        logging.warning("Stratified group split fallback: %s", error)
-        rng = np.random.default_rng(SEED)
-        shuffled = group_ids.copy()
-        rng.shuffle(shuffled)
-        n_test = max(1, round(len(shuffled) * test_size))
-        n_val = max(1, round(len(shuffled) * val_size))
-        test_groups = shuffled[:n_test]
-        val_groups = shuffled[n_test : n_test + n_val]
-        train_groups = shuffled[n_test + n_val :]
-
-    split_by_group = {
-        group_id: "train" for group_id in train_groups
-    } | {group_id: "validation" for group_id in val_groups} | {
-        group_id: "test" for group_id in test_groups
-    }
-    split_rows = {"train": [], "validation": [], "test": []}
-    for row in rows:
-        split_rows[split_by_group[row["product_id"]]].append(row)
-
-    if not split_rows["train"] or not split_rows["validation"] or not split_rows["test"]:
-        raise ValueError("Grouped split produced an empty partition; add more products.")
-    train_ids = {row["product_id"] for row in split_rows["train"]}
-    val_ids = {row["product_id"] for row in split_rows["validation"]}
-    test_ids = {row["product_id"] for row in split_rows["test"]}
-    assert train_ids.isdisjoint(val_ids)
-    assert train_ids.isdisjoint(test_ids)
-    assert val_ids.isdisjoint(test_ids)
-    return split_rows
 
 
 def make_dataset(rows: list[dict[str, str]], label_to_id: dict[str, int], training: bool, batch_size: int):
@@ -441,7 +367,9 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     rows = read_manifest(args.data_dir)
-    split_rows = grouped_stratified_split(rows, args.val_size, args.test_size)
+    split_rows = grouped_stratified_split_strict(
+        rows, args.val_size, args.test_size, seed=SEED
+    )
     labels = sorted({row["label"] for row in rows})
     label_to_id = {label: index for index, label in enumerate(labels)}
     for split_name, split in split_rows.items():
