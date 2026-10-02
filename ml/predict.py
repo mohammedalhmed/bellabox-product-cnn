@@ -33,6 +33,10 @@ def main() -> None:
     model = tf.keras.models.load_model(args.model, compile=False)
     labels = json.loads(args.labels.read_text(encoding="utf-8"))
     probabilities = model.predict(load_image(args.image), verbose=0)[0]
+    if len(probabilities) != len(labels):
+        raise ValueError(
+            f"Model output has {len(probabilities)} classes but labels file contains {len(labels)} labels"
+        )
     top_k = min(max(args.top_k, 1), len(labels))
     indices = np.argsort(probabilities)[::-1][:top_k]
     result = {
