@@ -1,0 +1,36 @@
+name: Quality Gate
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Compile Python sources
+        run: python -m compileall -q ml
+
+      - name: Validate pipeline files
+        run: |
+          test -s ml/build_dataset.py
+          test -s ml/train.py
+          test -s ml/predict.py
+          test -s ml/requirements-colab.txt
+          test -s notebooks/BellaBox_Product_CNN_Final_Colab.ipynb
+
+      - name: Validate notebook JSON
+        run: python -m json.tool notebooks/BellaBox_Product_CNN_Final_Colab.ipynb > /dev/null
