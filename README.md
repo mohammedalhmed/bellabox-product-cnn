@@ -10,16 +10,6 @@
 
 [Dataset Builder](ml/build_dataset.py) · [Training](ml/train.py) · [Prediction](ml/predict.py) · [Colab Notebook](notebooks/BellaBox_Product_CNN_Final_Colab.ipynb) · [Runbook](docs/FINAL_DELIVERY_RUNBOOK_AR.md)
 
-![Python](https://img.shields.io/badge/Python-3.x-3776AB?style=flat-square&logo=python&logoColor=white)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-EfficientNetB0-FF6F00?style=flat-square&logo=tensorflow&logoColor=white)
-![Colab](https://img.shields.io/badge/Google_Colab-GPU-F9AB00?style=flat-square&logo=googlecolab&logoColor=111)
-![ML](https://img.shields.io/badge/Task-Image_Classification-111111?style=flat-square)
-![Status](https://img.shields.io/badge/Status-Training_Pipeline_Ready-0F9D58?style=flat-square)
-
-**Applied computer-vision pipeline for classifying real e-commerce product images.**
-
-[Dataset Builder](ml/build_dataset.py) · [Training](ml/train.py) · [Prediction](ml/predict.py) · [Colab Notebook](notebooks/BellaBox_Product_CNN_Final_Colab.ipynb) · [Runbook](docs/FINAL_DELIVERY_RUNBOOK_AR.md)
-
 مشروع تعلم آلي مستقل لتصنيف فئات منتجات متجر بيلابوكس من صور المنتجات باستخدام **CNN**. المشروع منفصل تمامًا عن ثيم سلة، ويعمل كـ Pipeline قابل لإعادة التشغيل على Google Colab من ملف منتجات سلة بصيغة Excel إلى التدريب والتقييم واختبار صورة جديدة.
 
 ## Portfolio Proof
