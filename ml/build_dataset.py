@@ -24,6 +24,7 @@ from PIL import Image
 
 IMAGE_URL_RE = re.compile(r"https?://[^\s,;]+", re.IGNORECASE)
 SUPPORTED_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"}
+MAX_IMAGE_BYTES = 25 * 1024 * 1024
 
 
 def parse_args() -> argparse.Namespace:
@@ -71,7 +72,13 @@ def fetch_bytes(url: str, retries: int = 3) -> bytes:
                 },
             )
             with urllib.request.urlopen(request, timeout=45) as response:
-                return response.read()
+                content_length = response.headers.get("Content-Length")
+                if content_length and int(content_length) > MAX_IMAGE_BYTES:
+                    raise ValueError(f"Image exceeds {MAX_IMAGE_BYTES} byte download limit")
+                payload = response.read(MAX_IMAGE_BYTES + 1)
+                if len(payload) > MAX_IMAGE_BYTES:
+                    raise ValueError(f"Image exceeds {MAX_IMAGE_BYTES} byte download limit")
+                return payload
         except Exception as error:  # network errors vary by Colab runtime
             last_error = error
             if attempt < retries:
