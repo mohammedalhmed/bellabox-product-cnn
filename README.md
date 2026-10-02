@@ -2,6 +2,19 @@
 
 مشروع تعلم آلي مستقل لتصنيف فئات منتجات متجر بيلابوكس من صور المنتجات باستخدام **CNN**. المشروع منفصل تمامًا عن ثيم سلة، ويعمل كـ Pipeline قابل لإعادة التشغيل على Google Colab من ملف منتجات سلة بصيغة Excel إلى التدريب والتقييم واختبار صورة جديدة.
 
+## ML Pipeline
+
+```mermaid
+flowchart LR
+    A["Salla Excel Export"] --> B["Validate Labels & Image URLs"]
+    B --> C["Build Dataset + manifest.csv"]
+    C --> D["Grouped Train / Val / Test Split"]
+    D --> E["EfficientNetB0 Transfer Learning"]
+    E --> F["Fine-tuning + Checkpoints"]
+    F --> G["Evaluation"]
+    G --> H["Top-K Prediction"]
+```
+
 ## ما الذي يفعله المشروع؟
 
 يستخدم المشروع **تصدير منتجات سلة Excel** كمصدر البيانات الأساسي. يقرأ عمود `تصنيف المنتج` كتسمية تدريب، ويقرأ روابط الصور من عمود `صورة المنتج`، ثم ينزل الصور إلى Google Drive وينشئ `manifest.csv`. بعد ذلك يدرب نموذج CNN على فئات المتجر الفعلية، مع إبقاء المراجعة البشرية قبل اعتماد التصنيف.
