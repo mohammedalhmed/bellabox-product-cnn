@@ -1,5 +1,7 @@
 # BellaBox Product CNN
 
+![Portfolio cover](docs/portfolio/cover.svg)
+
 ![Python](https://img.shields.io/badge/Python-3.x-3776AB?style=flat-square&logo=python&logoColor=white)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-EfficientNetB0-FF6F00?style=flat-square&logo=tensorflow&logoColor=white)
 ![Colab](https://img.shields.io/badge/Google_Colab-GPU-F9AB00?style=flat-square&logo=googlecolab&logoColor=111)
